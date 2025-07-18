@@ -396,14 +396,4 @@ elif page_selection == "Model Performance":
     st.pyplot(fig_pred)
     st.markdown("---")
 
-    st.subheader("Residual Plot")
-    st.write("This plot shows the residuals (differences between actual and predicted values). A good model will have residuals randomly scattered around zero.")
-    
-    residuals = y_test - y_pred
-    fig_resid, ax_resid = plt.subplots(figsize=(10, 7))
-    sns.scatterplot(x=y_pred, y=residuals, alpha=0.7, color='green', ax=ax_resid)
-    ax_resid.axhline(y=0, color='r', linestyle='--')
-    ax_resid.set_title('Residual Plot', fontsize=16)
-    ax_resid.set_xlabel('Predicted Values', fontsize=14)
-    ax_resid.set_ylabel('Residuals', fontsize=14)
-    st.pyplot(fig_resid)
+
