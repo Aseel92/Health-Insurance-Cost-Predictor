@@ -80,14 +80,6 @@ st.sidebar.title("Explore the App")
 page_selection = st.sidebar.radio("Go to", ["Home", "About", "Data Insights", "Model Performance"])
 st.sidebar.markdown("---")
 
-# Initialize session state for metrics if not already present
-if 'metrics' not in st.session_state:
-    st.session_state.metrics = {
-        'r2': r2,
-        'mse': mse,
-        'mae': mae,
-        'history': []
-    }
 
 # Home page (Prediction)
 if page_selection == "Home":
@@ -249,7 +241,7 @@ elif page_selection == "Data Insights":
     st.pyplot(fig_hist)
     st.markdown("---")
 
-    # 2. BMI Boxplot - Modified to show colors by bmi_category
+    # 2. BMI Boxplot 
     st.write("#### BMI Distribution by Category")
     fig_bmi_cat, ax_bmi_cat = plt.subplots(figsize=(10, 7))
     sns.boxplot(x='bmi_category', y='bmi', data=df, ax=ax_bmi_cat, palette="viridis", order=bmi_labels)
