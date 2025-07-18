@@ -362,22 +362,6 @@ elif page_selection == "Model Performance":
 
     st.markdown("---")
 
-    st.subheader("Performance Trend Over Time")
-    if len(current_metrics['history']) > 0:
-        history_df = pd.DataFrame(current_metrics['history'])
-        fig_trend, ax = plt.subplots(figsize=(10, 5))
-        ax.plot(history_df.index, history_df['metrics'].apply(lambda x: x['r2']), label='R2 Score', marker='o')
-        ax.plot(history_df.index, history_df['metrics'].apply(lambda x: x['mse']), label='MSE', marker='o')
-        ax.plot(history_df.index, history_df['metrics'].apply(lambda x: x['mae']), label='MAE', marker='o')
-        ax.set_title('Model Performance Trend Over Predictions', fontsize=16)
-        ax.set_xlabel('Prediction Number', fontsize=14)
-        ax.set_ylabel('Metric Value', fontsize=14)
-        ax.legend()
-        st.pyplot(fig_trend)
-    else:
-        st.info("No prediction history yet. Make predictions on the Home page to see performance trends.")
-
-    st.markdown("---")
 
     st.subheader("Actual vs. Predicted Charges")
     st.write("This scatter plot visualizes how well the model's predictions align with the actual insurance charges. A perfect model would have all points lying on the red dashed line.")
