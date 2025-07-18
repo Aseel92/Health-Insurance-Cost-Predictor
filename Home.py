@@ -27,6 +27,7 @@ reverse_sex_mapping = {v: k for k, v in sex_mapping.items()}
 reverse_smoker_mapping = {v: k for k, v in smoker_mapping.items()}
 reverse_region_mapping = {v: k for k, v in region_mapping.items()}
 
+
 @st.cache_data
 def load_data():
     try:
@@ -44,8 +45,9 @@ def load_data():
 
     return health_insurance
 
+
 @st.cache_resource
-def load_and_evaluate_model():
+def load_model_and_test_data():
     try:
         with open('random_forest_model.pkl', 'rb') as file:
             model = pickle.load(file)
@@ -59,29 +61,35 @@ def load_and_evaluate_model():
         st.stop()
 
     y_pred = model.predict(X_test)
-
     r2 = r2_score(y_test, y_pred)
     mse = mean_squared_error(y_test, y_pred)
     mae = mean_absolute_error(y_test, y_pred)
 
-    return model, X_test, y_test, y_pred, r2, mse, mae
+    return model, X_test, y_test, r2, mse, mae
+
 
 df = load_data()
-model, X_test, y_test, y_pred, r2, mse, mae = load_and_evaluate_model()
+model, X_test, y_test, r2, mse, mae = load_model_and_test_data()
 
 display_df = df.copy()
 display_df['sex_label'] = display_df['sex'].map(reverse_sex_mapping)
 display_df['smoker_label'] = display_df['smoker'].map(reverse_smoker_mapping)
 display_df['region_label'] = display_df['region'].map(reverse_region_mapping)
 
-
 st.sidebar.title("Explore the App")
 page_selection = st.sidebar.radio("Go to", ["Home", "About", "Data Insights", "Model Performance"])
 st.sidebar.markdown("---")
 
+# Initialize session state for metrics if not already present
+if 'metrics' not in st.session_state:
+    st.session_state.metrics = {
+        'r2': r2,
+        'mse': mse,
+        'mae': mae,
+        'history': []
+    }
 
-
-#home page(Prediction) ---
+# Home page (Prediction)
 if page_selection == "Home":
     st.title("Health Insurance Cost Predictor")
     st.markdown("""
@@ -91,6 +99,7 @@ if page_selection == "Home":
     """)
 
     st.header("User Input Features")
+
 
     def get_user_input():
         age = st.number_input("Age", min_value=18, max_value=64, value=30, step=1)
@@ -125,8 +134,8 @@ if page_selection == "Home":
 
         return features, user_bmi_category, user_age_group
 
-    user_input_df, user_bmi_category, user_age_group = get_user_input()
 
+    user_input_df, user_bmi_category, user_age_group = get_user_input()
 
     st.subheader("Your Predicted Insurance Charges")
     predicted_charges = model.predict(user_input_df)
@@ -137,7 +146,35 @@ if page_selection == "Home":
     st.markdown(f"- **Age Group:** `{user_age_group}`")
 
 
-#about page
+    simulated_actual = predicted_charges[0] * np.random.uniform(0.9, 1.1)
+
+    # Update the test data and metrics
+    new_X_test = pd.concat([X_test, user_input_df], ignore_index=True)
+    new_y_test = pd.concat([y_test, pd.Series([simulated_actual])], ignore_index=True)
+
+    new_pred = model.predict(new_X_test)
+    new_r2 = r2_score(new_y_test, new_pred)
+    new_mse = mean_squared_error(new_y_test, new_pred)
+    new_mae = mean_absolute_error(new_y_test, new_pred)
+
+    # Store in session state
+    st.session_state.metrics = {
+        'r2': new_r2,
+        'mse': new_mse,
+        'mae': new_mae,
+        'history': st.session_state.metrics['history'] + [{
+            'input': user_input_df.iloc[0].to_dict(),
+            'predicted': predicted_charges[0],
+            'simulated_actual': simulated_actual,
+            'metrics': {
+                'r2': new_r2,
+                'mse': new_mse,
+                'mae': new_mae
+            }
+        }]
+    }
+
+# About page
 elif page_selection == "About":
     st.title("About the Health Insurance Cost Predictor")
     st.markdown("""
@@ -155,7 +192,8 @@ elif page_selection == "About":
         Understanding factors that influence health insurance costs can be complex. This tool aims to provide a transparent and interactive way to explore these relationships and get a quick estimate. """)
     st.markdown("---")
     st.subheader("Meet the Developer")
-    st.write("This application was developed as a demonstration of machine learning for predictive analytics. You can find more projects and connect with me on [LinkedIn](https://www.linkedin.com/in/aseel-ai-ml/) or [GitHub](https://github.com/Aseel92).")
+    st.write(
+        "This application was developed as a demonstration of machine learning for predictive analytics. You can find more projects and connect with me on [LinkedIn](https://www.linkedin.com/in/aseel-ai-ml/) or [GitHub](https://github.com/Aseel92).")
 
 # Data Insights page
 elif page_selection == "Data Insights":
@@ -243,7 +281,8 @@ elif page_selection == "Data Insights":
     # 5. Age vs. Charges by Smoker Status
     st.write("#### Age vs. Charges by Smoker Status")
     fig_age_charges_smoker, ax_age_charges_smoker = plt.subplots(figsize=(10, 7))
-    sns.scatterplot(x='age', y='charges', hue='smoker_label', data=display_df, palette='coolwarm', alpha=0.7, ax=ax_age_charges_smoker)
+    sns.scatterplot(x='age', y='charges', hue='smoker_label', data=display_df, palette='coolwarm', alpha=0.7,
+                    ax=ax_age_charges_smoker)
     ax_age_charges_smoker.set_title('Age vs. Charges by Smoker Status', fontsize=16)
     ax_age_charges_smoker.set_xlabel('Age', fontsize=14)
     ax_age_charges_smoker.set_ylabel('Charges', fontsize=14)
@@ -254,7 +293,8 @@ elif page_selection == "Data Insights":
     # 6. BMI vs. Charges by Smoker Status
     st.write("#### BMI vs. Charges by Smoker Status")
     fig_bmi_charges_smoker, ax_bmi_charges_smoker = plt.subplots(figsize=(10, 7))
-    sns.scatterplot(x='bmi', y='charges', hue='smoker_label', data=display_df, palette='viridis', alpha=0.7, ax=ax_bmi_charges_smoker)
+    sns.scatterplot(x='bmi', y='charges', hue='smoker_label', data=display_df, palette='viridis', alpha=0.7,
+                    ax=ax_bmi_charges_smoker)
     ax_bmi_charges_smoker.set_title('BMI vs. Charges by Smoker Status', fontsize=16)
     ax_bmi_charges_smoker.set_xlabel('BMI', fontsize=14)
     ax_bmi_charges_smoker.set_ylabel('Charges', fontsize=14)
@@ -285,55 +325,61 @@ elif page_selection == "Data Insights":
     # 9. Countplot for Region Distribution
     st.write("#### Count of Individuals by Region")
     fig_region_count, ax_region_count = plt.subplots(figsize=(9, 6))
-    sns.countplot(x='region_label', data=display_df, palette='viridis', order=list(region_mapping.keys()), ax=ax_region_count)
+    sns.countplot(x='region_label', data=display_df, palette='viridis', order=list(region_mapping.keys()),
+                  ax=ax_region_count)
     ax_region_count.set_title('Count of Individuals by Region', fontsize=16)
     ax_region_count.set_xlabel('Region', fontsize=14)
     ax_region_count.set_ylabel('Count', fontsize=14)
     st.pyplot(fig_region_count)
     st.markdown("---")
 
-    # 10. Correlation Heatmap
-    st.write("#### Correlation Matrix")
-    st.write("This heatmap shows the correlation coefficients between numerical variables. Values closer to 1 or -1 indicate stronger positive or negative linear relationships, respectively.")
-    # Use the df with encoded numerical values for correlation calculation
-    numerical_df = df[['age', 'bmi', 'children', 'charges', 'sex', 'smoker', 'region']]
-    fig_corr, ax_corr = plt.subplots(figsize=(10, 8))
-    sns.heatmap(numerical_df.corr(), annot=True, cmap='coolwarm', fmt=".2f", linewidths=.5, ax=ax_corr)
-    ax_corr.set_title('Correlation Matrix', fontsize=16)
-    st.pyplot(fig_corr)
+
 
 # Model Performance Page
 elif page_selection == "Model Performance":
-    st.title("Model Performance Evaluation ")
+    st.title("Model Performance Evaluation")
     st.markdown("""
         This page presents the key performance metrics of the machine learning model used for prediction.
         Understanding these metrics helps in evaluating the model's accuracy and reliability.
     """)
     st.markdown("---")
 
-    st.subheader("Key Performance Metrics")
+    # Use session state metrics
+    current_metrics = st.session_state.metrics
+
+    st.subheader("Current Performance Metrics")
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.metric(label="R-squared (R2) Score", value=f"{r2:.2f}")
-        st.markdown("Higher is better. Explains the proportion of variance in the dependent variable that can be predicted from the independent variables.")
+        st.metric(label="R-squared (R2) Score", value=f"{current_metrics['r2']:.4f}")
+        st.markdown(
+            "Higher is better. Explains the proportion of variance in the dependent variable that can be predicted from the independent variables.")
     with col2:
-        st.metric(label="Mean Squared Error (MSE)", value=f"{mse:,.2f}")
-        st.markdown("Lower is better. Represents the average of the squared differences between predicted and actual values.")
+        st.metric(label="Mean Squared Error (MSE)", value=f"{current_metrics['mse']:,.2f}")
+        st.markdown(
+            "Lower is better. Represents the average of the squared differences between predicted and actual values.")
     with col3:
-        st.metric(label="Mean Absolute Error (MAE)", value=f"{mae:,.2f}")
-        st.markdown("Lower is better. Represents the average of the absolute differences between predicted and actual values, in the same units as the target variable ($).")
+        st.metric(label="Mean Absolute Error (MAE)", value=f"{current_metrics['mae']:,.2f}")
+        st.markdown(
+            "Lower is better. Represents the average of the absolute differences between predicted and actual values, in the same units as the target variable ($).")
 
     st.markdown("---")
 
+
+
     st.subheader("Actual vs. Predicted Charges")
-    st.write("This scatter plot visualizes how well the model's predictions align with the actual insurance charges. A perfect model would have all points lying on the red dashed line.")
+    st.write(
+        "This scatter plot visualizes how well the model's predictions align with the actual insurance charges. A perfect model would have all points lying on the red dashed line.")
+
+    # Get predictions for the test set
+    y_pred = model.predict(X_test)
+
     fig_pred, ax_pred = plt.subplots(figsize=(10, 7))
     sns.scatterplot(x=y_test, y=y_pred, alpha=0.7, color='blue', ax=ax_pred)
     min_val = min(y_test.min(), y_pred.min())
     max_val = max(y_test.max(), y_pred.max())
     ax_pred.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2)
-    ax_pred.set_title('Actual vs. Predicted Model', fontsize=16)
+    ax_pred.set_title('Actual vs. Predicted Charges', fontsize=16)
     ax_pred.set_xlabel('Actual Values', fontsize=14)
     ax_pred.set_ylabel('Predicted Values', fontsize=14)
     st.pyplot(fig_pred)
